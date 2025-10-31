@@ -1,0 +1,1 @@
+# Leave Policy (Excerpt)\n\nEmployees accrue 1 day of paid leave per month. Unused leave carries over up to 5 days. Requests must be submitted 7 days in advance for planned leave.
