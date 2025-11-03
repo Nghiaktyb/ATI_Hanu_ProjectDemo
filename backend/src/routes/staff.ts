@@ -1,44 +1,33 @@
 import { Router } from "express";
-import { db, Staff } from "../db/memory";
-import { v4 as uuid } from "uuid";
+import { getAllStaff, createStaff, getStaffById, updateStaff, deleteStaff, Staff } from "../db/mysql";
 
 const router = Router();
 
-router.get("/", (_req, res) => {
-  res.json({ data: db.staff });
+router.get("/", async (_req, res) => {
+  const data = await getAllStaff();
+  res.json({ data });
 });
 
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const { firstName, lastName, email, department, location } = req.body || {};
-  const s: Staff = {
-    id: uuid(),
-    firstName,
-    lastName,
-    email,
-    department,
-    location,
-  };
-  db.staff.push(s);
+  const s = await createStaff({ firstName, lastName, email, department, location });
   res.status(201).json({ data: s });
 });
 
-router.get("/:id", (req, res) => {
-  const s = db.staff.find((x) => x.id === req.params.id);
+router.get("/:id", async (req, res) => {
+  const s = await getStaffById(req.params.id);
   if (!s) return res.status(404).json({ error: "Not found" });
   res.json({ data: s });
 });
 
-router.patch("/:id", (req, res) => {
-  const s = db.staff.find((x) => x.id === req.params.id);
+router.patch("/:id", async (req, res) => {
+  const s = await updateStaff(req.params.id, req.body || {});
   if (!s) return res.status(404).json({ error: "Not found" });
-  Object.assign(s, req.body);
   res.json({ data: s });
 });
 
-router.delete("/:id", (req, res) => {
-  const i = db.staff.findIndex((x) => x.id === req.params.id);
-  if (i === -1) return res.status(404).json({ error: "Not found" });
-  db.staff.splice(i, 1);
+router.delete("/:id", async (req, res) => {
+  await deleteStaff(req.params.id);
   res.status(204).end();
 });
 

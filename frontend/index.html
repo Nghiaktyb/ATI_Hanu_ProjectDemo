@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Staff Platform</title>
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // enable dark mode by toggling the class on <html>
+      if (localStorage.theme === 'dark') document.documentElement.classList.add('dark')
+    </script>
   </head>
   <body>
     <div id="root"></div>

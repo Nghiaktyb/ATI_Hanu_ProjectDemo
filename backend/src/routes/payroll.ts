@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { db, PayItem } from "../db/memory";
-import { v4 as uuid } from "uuid";
+import { getAllStaff, getAllTimesheets, createPayItems, getPayItems } from "../db/mysql";
 
 const router = Router();
 
@@ -12,32 +11,28 @@ function hoursBetween(inAt?: string, outAt?: string, breakMins?: number) {
   return mins / 60;
 }
 
-router.post("/run", (req, res) => {
+router.post("/run", async (req, res) => {
   const { period = "2025-10", hourlyRate = 5 } = req.body || {};
-  const results: PayItem[] = [];
+  const results: any[] = [];
 
-  // Very naive: sum timesheet hours * hourlyRate
-  for (const s of db.staff) {
-    const sheets = db.timesheets.filter((t) => t.staffId === s.id);
+  const staff = await getAllStaff();
+  const times = await getAllTimesheets();
+
+  for (const s of staff) {
+    const sheets = times.filter((t) => t.staffId === s.id);
     let totalHours = 0;
-    for (const t of sheets)
-      totalHours += hoursBetween(t.inAt, t.outAt, t.breakMins);
+    for (const t of sheets) totalHours += hoursBetween(t.inAt, t.outAt, t.breakMins);
     const gross = Math.round(totalHours * hourlyRate * 100) / 100;
-    results.push({
-      id: uuid(),
-      staffId: s.id,
-      period,
-      component: "BASE",
-      quantity: totalHours,
-      amount: gross,
-    });
+    results.push({ staffId: s.id, period, component: 'BASE', quantity: totalHours, amount: gross });
   }
-  db.payItems.push(...results);
-  res.json({ period, items: results });
+
+  const created = await createPayItems(results);
+  res.json({ period, items: created });
 });
 
-router.get("/items", (_req, res) => {
-  res.json({ data: db.payItems });
+router.get("/items", async (_req, res) => {
+  const data = await getPayItems();
+  res.json({ data });
 });
 
 export default router;

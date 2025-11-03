@@ -1,0 +1,17 @@
+/* Minimal project CSS (keeps Tailwind CDN but adds small fixes) */
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* Make some blocks more reliably full height on mobile */
+.min-h-dvh { min-height: 100dvh; }

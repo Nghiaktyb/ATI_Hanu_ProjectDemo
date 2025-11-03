@@ -1,57 +1,48 @@
 import { Router } from "express";
-import { db, Shift, Timesheet } from "../db/memory";
-import { v4 as uuid } from "uuid";
+import {
+  getAllShifts,
+  createShift,
+  assignShift,
+  getAllTimesheets,
+  createTimesheet,
+  updateTimesheetByStaffDate,
+} from "../db/mysql";
 
 const router = Router();
 
-router.get("/", (req, res) => {
-  const { from, to } = req.query;
-  // naive filter for demo
-  res.json({ data: db.shifts });
+router.get("/", async (req, res) => {
+  const data = await getAllShifts();
+  res.json({ data });
 });
 
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const { title, location, startAt, endAt } = req.body || {};
-  const shift: Shift = {
-    id: uuid(),
-    title,
-    location,
-    startAt,
-    endAt,
-    assignedStaffIds: [],
-  };
-  db.shifts.push(shift);
-  res.status(201).json({ data: shift });
+  const shifts = await createShift({ title, location, startAt, endAt, assignedStaffIds: [] });
+  res.status(201).json({ data: shifts });
 });
 
-router.post("/:id/assign", (req, res) => {
-  const shift = db.shifts.find((s) => s.id === req.params.id);
-  if (!shift) return res.status(404).json({ error: "Shift not found" });
+router.post("/:id/assign", async (req, res) => {
   const { staffId } = req.body || {};
-  if (staffId && !shift.assignedStaffIds.includes(staffId))
-    shift.assignedStaffIds.push(staffId);
+  const shift = await assignShift(req.params.id, staffId);
+  if (!shift) return res.status(404).json({ error: "Shift not found" });
   res.json({ data: shift });
 });
 
-router.get("/timesheets", (req, res) => {
-  res.json({ data: db.timesheets });
+router.get("/timesheets", async (_req, res) => {
+  const data = await getAllTimesheets();
+  res.json({ data });
 });
 
-router.post("/timesheets/clockin", (req, res) => {
+router.post("/timesheets/clockin", async (req, res) => {
   const { staffId, date, inAt } = req.body || {};
-  const ts: Timesheet = { id: uuid(), staffId, date, inAt };
-  db.timesheets.push(ts);
+  const ts = await createTimesheet({ staffId, date, inAt });
   res.status(201).json({ data: ts });
 });
 
-router.post("/timesheets/clockout", (req, res) => {
+router.post("/timesheets/clockout", async (req, res) => {
   const { staffId, date, outAt, breakMins } = req.body || {};
-  const ts = db.timesheets.find(
-    (t) => t.staffId === staffId && t.date === date
-  );
+  const ts = await updateTimesheetByStaffDate(staffId, date, { outAt, breakMins: breakMins ?? 0 });
   if (!ts) return res.status(404).json({ error: "Timesheet not found" });
-  ts.outAt = outAt;
-  ts.breakMins = breakMins ?? 0;
   res.json({ data: ts });
 });
 
