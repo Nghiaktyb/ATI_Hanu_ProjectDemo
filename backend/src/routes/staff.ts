@@ -1,0 +1,127 @@
+import { Router } from "express";
+import { getAllStaff, createStaff, getStaffById, updateStaff, deleteStaff, Staff, findStaffByEmail, findUserByEmail, createUser, getCoWorkers } from "../db/mysql";
+import { authenticate, authorize, AuthRequest } from "../middleware/auth";
+import bcrypt from "bcryptjs";
+
+const router = Router();
+
+// All staff routes require authentication
+router.use(authenticate);
+
+// GET /staff - All authenticated users can see all staff
+router.get("/", async (req: AuthRequest, res) => {
+  try {
+    const user = req.user!;
+    
+    // All authenticated users (admin, manager, staff) can see all staff
+    const data = await getAllStaff();
+    return res.json({ data });
+  } catch (e: any) {
+    console.error('[/staff] Get error:', e);
+    res.status(500).json({ error: e.message || "Failed to fetch staff" });
+  }
+});
+
+// POST /staff - Only Admin/Manager can create staff
+router.post("/", authorize('admin', 'manager'), async (req, res) => {
+  try {
+    const { firstName, lastName, email, department, location } = req.body || {};
+    if (!firstName || !lastName || !email) {
+      return res.status(400).json({ error: "First name, last name, and email are required" });
+    }
+    
+    // Check if user already exists
+    const existingUser = await findUserByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({ error: "A user with this email already exists" });
+    }
+    
+    // Generate a temporary password (8 characters: 4 random letters + 4 random digits)
+    const generateTempPassword = () => {
+      const letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const digits = '0123456789';
+      let password = '';
+      // 4 random letters
+      for (let i = 0; i < 4; i++) {
+        password += letters.charAt(Math.floor(Math.random() * letters.length));
+      }
+      // 4 random digits
+      for (let i = 0; i < 4; i++) {
+        password += digits.charAt(Math.floor(Math.random() * digits.length));
+      }
+      // Shuffle the password
+      return password.split('').sort(() => Math.random() - 0.5).join('');
+    };
+    
+    const tempPassword = generateTempPassword();
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+    
+    // Create user account
+    await createUser({ email, passwordHash, role: 'staff' });
+    
+    // Create staff record
+    const s = await createStaff({ firstName, lastName, email, department, location });
+    
+    // Return staff data with temporary password (only shown once)
+    res.status(201).json({ 
+      data: s,
+      tempPassword: tempPassword // Include temporary password in response
+    });
+  } catch (e: any) {
+    console.error('[/staff] Create error:', e);
+    res.status(500).json({ error: e.message || "Failed to create staff" });
+  }
+});
+
+// GET /staff/:id - Admin/Manager: any staff, Staff: own profile only
+router.get("/:id", async (req: AuthRequest, res) => {
+  try {
+    const user = req.user!;
+    const s = await getStaffById(req.params.id);
+    if (!s) return res.status(404).json({ error: "Not found" });
+    
+    // Staff can only view their own profile
+    if (user.role === 'staff' && s.email !== user.email) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+    
+    res.json({ data: s });
+  } catch (e: any) {
+    console.error('[/staff/:id] Get error:', e);
+    res.status(500).json({ error: e.message || "Failed to fetch staff" });
+  }
+});
+
+// PATCH /staff/:id - Admin/Manager: any staff, Staff: own profile only
+router.patch("/:id", async (req: AuthRequest, res) => {
+  try {
+    const user = req.user!;
+    const s = await getStaffById(req.params.id);
+    if (!s) return res.status(404).json({ error: "Not found" });
+    
+    // Staff can only update their own profile
+    if (user.role === 'staff' && s.email !== user.email) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+    
+    const updated = await updateStaff(req.params.id, req.body || {});
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json({ data: updated });
+  } catch (e: any) {
+    console.error('[/staff/:id] Update error:', e);
+    res.status(500).json({ error: e.message || "Failed to update staff" });
+  }
+});
+
+// DELETE /staff/:id - Only Admin/Manager can delete staff
+router.delete("/:id", authorize('admin', 'manager'), async (req, res) => {
+  try {
+    await deleteStaff(req.params.id);
+    res.status(204).end();
+  } catch (e: any) {
+    console.error('[/staff/:id] Delete error:', e);
+    res.status(500).json({ error: e.message || "Failed to delete staff" });
+  }
+});
+
+export default router;
