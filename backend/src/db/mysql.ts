@@ -15,6 +15,8 @@ export function dbClient() {
         password: DB_PASS || '',
         database: DB_NAME || 'staff_platform',
         port: DB_PORT ? Number(DB_PORT) : 3306,
+        timezone: 'Z',
+        dateStrings: true,
       },
       pool: { min: 0, max: 7 },
     });

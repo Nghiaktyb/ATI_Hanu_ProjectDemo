@@ -16,6 +16,7 @@ type Staff = {
   firstName: string;
   lastName: string;
   email: string;
+  role?: string | null;
 };
 
 export default function Payroll() {

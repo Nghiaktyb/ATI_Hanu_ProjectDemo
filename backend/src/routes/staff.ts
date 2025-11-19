@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAllStaff, createStaff, getStaffById, updateStaff, deleteStaff, Staff, findStaffByEmail, findUserByEmail, createUser, getCoWorkers } from "../db/mysql";
+import { getAllStaff, createStaff, getStaffById, updateStaff, deleteStaff, Staff, findStaffByEmail, findUserByEmail, createUser, updateUserByEmail } from "../db/mysql";
 import { authenticate, authorize, AuthRequest } from "../middleware/auth";
 import bcrypt from "bcryptjs";
 
@@ -22,16 +22,30 @@ router.get("/", async (req: AuthRequest, res) => {
   }
 });
 
+const ALLOWED_ROLES = ['admin', 'manager', 'staff'];
+
+function normalizeRole(role?: string | null) {
+  if (!role) return 'staff';
+  const lower = role.toLowerCase();
+  return ALLOWED_ROLES.includes(lower) ? lower : 'staff';
+}
+
 // POST /staff - Only Admin/Manager can create staff
 router.post("/", authorize('admin', 'manager'), async (req, res) => {
   try {
-    const { firstName, lastName, email, department, location } = req.body || {};
+    const { firstName, lastName, email, department, location, role } = req.body || {};
     if (!firstName || !lastName || !email) {
       return res.status(400).json({ error: "First name, last name, and email are required" });
     }
+    const normalizedEmail = String(email).trim().toLowerCase();
+    if (!normalizedEmail) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    const normalizedRole = normalizeRole(role);
     
     // Check if user already exists
-    const existingUser = await findUserByEmail(email);
+    const existingUser = await findUserByEmail(normalizedEmail);
     if (existingUser) {
       return res.status(400).json({ error: "A user with this email already exists" });
     }
@@ -57,10 +71,10 @@ router.post("/", authorize('admin', 'manager'), async (req, res) => {
     const passwordHash = await bcrypt.hash(tempPassword, 10);
     
     // Create user account
-    await createUser({ email, passwordHash, role: 'staff' });
+    await createUser({ email: normalizedEmail, passwordHash, role: normalizedRole });
     
     // Create staff record
-    const s = await createStaff({ firstName, lastName, email, department, location });
+    const s = await createStaff({ firstName, lastName, email: normalizedEmail, department, location });
     
     // Return staff data with temporary password (only shown once)
     res.status(201).json({ 
@@ -104,8 +118,42 @@ router.patch("/:id", async (req: AuthRequest, res) => {
       return res.status(403).json({ error: "Insufficient permissions" });
     }
     
-    const updated = await updateStaff(req.params.id, req.body || {});
-    if (!updated) return res.status(404).json({ error: "Not found" });
+    const { role: requestedRole, email: requestedEmail, ...rest } = req.body || {};
+
+    // Prevent staff users from elevating privileges
+    if (requestedRole && user.role === 'staff') {
+      return res.status(403).json({ error: "Insufficient permissions to change role" });
+    }
+
+    const updates: Record<string, any> = { ...rest };
+    let targetEmail = s.email;
+
+    if (requestedEmail && requestedEmail !== s.email) {
+      const emailLower = String(requestedEmail).trim().toLowerCase();
+      if (!emailLower) {
+        return res.status(400).json({ error: "Email cannot be empty" });
+      }
+      const emailExists = await findUserByEmail(emailLower);
+      if (emailExists) {
+        return res.status(400).json({ error: "Another user already uses this email" });
+      }
+      updates.email = emailLower;
+      await updateUserByEmail(s.email, { email: emailLower });
+      targetEmail = emailLower;
+    }
+
+    if (requestedRole) {
+      const normalizedRole = normalizeRole(requestedRole);
+      await updateUserByEmail(targetEmail, { role: normalizedRole });
+    }
+
+    let updated: Staff | null = null;
+    if (Object.keys(updates).length > 0) {
+      updated = await updateStaff(req.params.id, updates);
+      if (!updated) return res.status(404).json({ error: "Not found" });
+    } else {
+      updated = await getStaffById(req.params.id);
+    }
     res.json({ data: updated });
   } catch (e: any) {
     console.error('[/staff/:id] Update error:', e);

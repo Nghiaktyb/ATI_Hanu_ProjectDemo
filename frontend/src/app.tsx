@@ -757,7 +757,7 @@ function StaffTable({ data, role }: { data: Staff[]; role?: string | null }) {
   );
 }
 
-function AiPanel({ role }: { role?: string | null }) {
+function AiPanel({ role, token }: { role?: string | null; token?: string | null }) {
   const isAdminOrManager = role === 'admin' || role === 'manager';
   const [message, setMessage] = useState("What is the overtime policy for night shift?");
   const [answer, setAnswer] = useState<string | null>(null);
@@ -768,35 +768,55 @@ function AiPanel({ role }: { role?: string | null }) {
   const [refreshBusy, setRefreshBusy] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [docsError, setDocsError] = useState<string | null>(null);
+
+  const getAuthHeaders = () => {
+    const authToken = token ?? (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+    if (!authToken) return null;
+    return { Authorization: `Bearer ${authToken}` };
+  };
 
   const loadDocs = async () => {
     try {
-      const token = localStorage.getItem('token');
+      setDocsError(null);
+      const headers = getAuthHeaders();
+      if (!headers) {
+        setDocs([]);
+        setDocsError("Missing authentication. Please sign in again.");
+        return;
+      }
       const r = await fetch(`${API}/ai/documents?t=${Date.now()}`, {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+        headers
       });
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        throw new Error(j?.error || 'Failed to load documents');
+      }
       setDocs(j?.files || []);
-    } catch { /* ignore */ }
+    } catch (e: any) {
+      console.error('[AiPanel] loadDocs error:', e);
+      setDocsError(e?.message || 'Failed to load documents');
+    }
   };
 
   useEffect(() => {
     loadDocs();
-  }, []);
+  }, [token]);
 
   const onUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploading(true);
     setUploadSuccess(null);
     try {
-      const token = localStorage.getItem('token');
+      const headers = getAuthHeaders();
+      if (!headers) throw new Error('Missing authentication token');
       const uploadedFiles: string[] = [];
       for (const file of Array.from(files)) {
         const fd = new FormData();
         fd.append('file', file);
         const r = await fetch(`${API}/ai/documents/upload`, {
           method: 'POST',
-          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          headers,
           body: fd
         });
         if (!r.ok) {
@@ -819,10 +839,11 @@ function AiPanel({ role }: { role?: string | null }) {
     if (!confirm(`Are you sure you want to delete "${doc.name}"?`)) return;
     setDeleting(doc.storedName);
     try {
-      const token = localStorage.getItem('token');
+      const headers = getAuthHeaders();
+      if (!headers) throw new Error('Missing authentication token');
       const r = await fetch(`${API}/ai/documents/${encodeURIComponent(doc.storedName)}`, {
         method: 'DELETE',
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+        headers
       });
       if (!r.ok) {
         const j = await r.json().catch(() => ({}));
@@ -860,12 +881,13 @@ function AiPanel({ role }: { role?: string | null }) {
     setAnswer(null);
     setCites([]);
     try {
-      const token = localStorage.getItem('token');
+      const headers = getAuthHeaders();
+      if (!headers) throw new Error('Missing authentication token');
       const r = await fetch(`${API}/ai/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
+          ...headers
         },
         body: JSON.stringify({ message })
       });
@@ -921,6 +943,11 @@ function AiPanel({ role }: { role?: string | null }) {
       {uploadSuccess && (
         <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/30 dark:text-emerald-200">
           {uploadSuccess}
+        </div>
+      )}
+      {docsError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-200">
+          {docsError}
         </div>
       )}
 
@@ -1161,7 +1188,7 @@ export default function App() {
 
                   <div className="grid gap-4 lg:grid-cols-2">
                     <StaffTable data={staff} role={role} />
-                    <AiPanel role={role} />
+                    <AiPanel role={role} token={token} />
                   </div>
                 </>
               )}
@@ -1204,7 +1231,7 @@ export default function App() {
               {route === '/ai' && (
                 <div>
                   <h2 className="text-xl font-semibold">Docs & AI</h2>
-                  <AiPanel role={role} />
+                  <AiPanel role={role} token={token} />
                 </div>
               )}
 

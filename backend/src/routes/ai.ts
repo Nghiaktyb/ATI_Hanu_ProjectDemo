@@ -251,7 +251,7 @@ router.post("/chat", async (req, res) => {
       return `Document #${i + 1}:\n${t}\n`;
     }).join("\n---\n\n");
 
-  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash-exp";
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {

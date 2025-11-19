@@ -2,6 +2,25 @@ import React, { useEffect, useState } from 'react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
+const ROLE_OPTIONS = [
+  { value: 'staff', label: 'Staff' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'admin', label: 'Admin' },
+];
+
+const DEPARTMENT_OPTIONS = [
+  'Manager',
+  'IT',
+  'HR',
+  'Finance',
+  'Operations',
+  'Sales',
+  'Marketing',
+  'Support',
+  'Logistics',
+  'Other',
+];
+
 type Props = {
   staffId?: string | null;
   onDone: () => void;
@@ -14,6 +33,7 @@ export default function CreateStaff({ staffId, onDone, onCancel }: Props) {
   const [email, setEmail] = useState('');
   const [department, setDepartment] = useState('');
   const [location, setLocation] = useState('');
+  const [roleValue, setRoleValue] = useState<'staff' | 'manager' | 'admin'>('staff');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
@@ -36,6 +56,7 @@ export default function CreateStaff({ staffId, onDone, onCancel }: Props) {
         setEmail(s.email || '');
         setDepartment(s.department || '');
         setLocation(s.location || '');
+        setRoleValue((s.role as 'staff' | 'manager' | 'admin') || 'staff');
       } catch (e: any) {
         setError(e.message || String(e));
       }
@@ -48,7 +69,7 @@ export default function CreateStaff({ staffId, onDone, onCancel }: Props) {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const body = { firstName, lastName, email, department, location };
+      const body = { firstName, lastName, email, department, location, role: roleValue };
       let r;
       if (staffId) {
         r = await fetch(`${API}/staff/${staffId}`, {
@@ -165,8 +186,49 @@ export default function CreateStaff({ staffId, onDone, onCancel }: Props) {
           <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
         </div>
         <div>
+          <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">Role</label>
+          <select
+            value={roleValue}
+            onChange={(e) => setRoleValue(e.target.value as 'staff' | 'manager' | 'admin')}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            {ROLE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
           <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">Department</label>
-          <input value={department} onChange={(e) => setDepartment(e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
+          <select
+            value={DEPARTMENT_OPTIONS.includes(department) ? department : department ? 'custom' : ''}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === 'custom') {
+                setDepartment('');
+              } else {
+                setDepartment(value);
+              }
+            }}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="">Select department</option>
+            {DEPARTMENT_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+            <option value="custom">Other...</option>
+          </select>
+          {(!department || !DEPARTMENT_OPTIONS.includes(department)) && (
+            <input
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              placeholder="Enter department"
+              className="mt-2 w-full rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            />
+          )}
         </div>
         <div className="sm:col-span-2">
           <label className="mb-1 block text-sm text-slate-600 dark:text-slate-300">Location</label>

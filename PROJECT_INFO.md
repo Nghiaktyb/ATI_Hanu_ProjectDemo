@@ -3,6 +3,7 @@
 ## Technology Stack
 
 ### Backend
+
 - **Runtime**: Node.js 20
 - **Framework**: Express.js
 - **Language**: TypeScript
@@ -12,6 +13,7 @@
 - **File Processing**: pdf-parse, mammoth, xlsx, tesseract.js
 
 ### Frontend
+
 - **Framework**: React 18
 - **Build Tool**: Vite
 - **Language**: TypeScript
@@ -19,6 +21,7 @@
 - **Server**: Nginx (production)
 
 ### Infrastructure
+
 - **Containerization**: Docker & Docker Compose
 - **Database**: MySQL 8.0
 - **Web Server**: Nginx (frontend)
@@ -42,6 +45,7 @@
 ## Database Schema
 
 ### Tables
+
 - `users` - Authentication users
 - `staff` - Staff members
 - `shifts` - Work shifts
@@ -77,13 +81,14 @@ All API endpoints are RESTful:
 ## Development vs Production
 
 ### Development
+
 - Hot reload enabled
 - Source maps available
 - Detailed error messages
 
 ### Production (Docker)
+
 - Optimized builds
 - Multi-stage Docker builds
 - Nginx for static serving
 - Production dependencies only
-

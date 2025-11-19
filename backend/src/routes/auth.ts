@@ -98,12 +98,32 @@ router.post("/reset-password", async (req, res) => {
 
     // Check if token is expired
     // Handle both MySQL datetime string and Date object
-    const expiresAt = resetRecord.expiresAt instanceof Date 
-      ? resetRecord.expiresAt 
-      : new Date(resetRecord.expiresAt);
-    if (new Date() > expiresAt) {
+    let expiresAt: Date;
+    if (resetRecord.expiresAt instanceof Date) {
+      expiresAt = resetRecord.expiresAt;
+    } else {
+      // MySQL returns datetime as string in format "YYYY-MM-DD HH:MM:SS"
+      // We stored it as UTC (from toISOString()), so we need to parse it as UTC
+      const dateStr = String(resetRecord.expiresAt).trim();
+      // Convert MySQL datetime format to ISO format with UTC timezone
+      // "2024-01-01 12:00:00" -> "2024-01-01T12:00:00Z"
+      if (dateStr.includes('T') || dateStr.endsWith('Z') || dateStr.includes('+') || dateStr.match(/-\d{2}:\d{2}$/)) {
+        // Already in ISO format with timezone
+        expiresAt = new Date(dateStr);
+      } else {
+        // MySQL format: replace first space with T and append Z for UTC
+        const isoStr = dateStr.replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})/, '$1T$2') + 'Z';
+        expiresAt = new Date(isoStr);
+      }
+    }
+    
+    const now = new Date();
+    if (now > expiresAt) {
+      console.log(`[Password Reset] Token expired. Now: ${now.toISOString()}, Expires: ${expiresAt.toISOString()}`);
       return res.status(400).json({ error: "Reset token has expired" });
     }
+    
+    console.log(`[Password Reset] Token valid. Now: ${now.toISOString()}, Expires: ${expiresAt.toISOString()}`);
 
     // Hash new password
     const passwordHash = await bcrypt.hash(newPassword, 10);

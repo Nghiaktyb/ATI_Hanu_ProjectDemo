@@ -1,1 +1,0 @@
-# Overtime Policy (Excerpt)\n\nOvertime applies after 8 hours per day or 40 hours per week. Night shift overtime is paid at 150% of base hourly rate. Prior manager approval is required.

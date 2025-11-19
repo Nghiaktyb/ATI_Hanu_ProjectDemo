@@ -30,6 +30,7 @@ type Staff = {
   firstName: string;
   lastName: string;
   email: string;
+  role?: string | null;
 };
 
 export default function Training({ role }: { role?: string | null }) {
